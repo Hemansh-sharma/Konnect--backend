@@ -59,6 +59,29 @@ requestRouter.post(
         } catch (err) {
           console.log("Error sending email:", err);
         }
+
+        // Emit socket event to notify the user of new connection request
+        try {
+          const io = req.app.get("io");
+          const onlineUsers = req.app.get("onlineUsers");
+          const toUserIdStr = toUserId.toString();
+          
+          console.log("Attempting to emit newRequest event");
+          console.log("IO instance exists:", !!io);
+          console.log("OnlineUsers map exists:", !!onlineUsers);
+          console.log("Target user ID:", toUserIdStr);
+          console.log("Online users:", Array.from(onlineUsers ? onlineUsers.entries() : []));
+          
+          if (io && onlineUsers && onlineUsers.has(toUserIdStr)) {
+            const targetSocketId = onlineUsers.get(toUserIdStr);
+            console.log("Emitting newRequest to socket:", targetSocketId);
+            io.to(targetSocketId).emit("newRequest");
+          } else {
+            console.log("User is not online or io/onlineUsers not available");
+          }
+        } catch (err) {
+          console.log("Error emitting socket event:", err);
+        }
       }
 
       res.json({

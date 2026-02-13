@@ -4,6 +4,7 @@ const app = express();
 const cookieParser = require("cookie-parser");
 const cors = require("cors");
 const http = require("http");
+const path = require("path");
 
 require("dotenv").config();
 
@@ -17,6 +18,7 @@ app.use(
 );
 app.use(express.json());
 app.use(cookieParser());
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 const authRouter = require("./routes/auth");
 const profileRouter = require("./routes/profile");
@@ -33,6 +35,11 @@ app.use("/", chatRouter);
 
 const server = http.createServer(app);
 initializeSocket(server);
+
+// Make io and onlineUsers available to routes
+// These are set by initializeSocket on the server object
+app.set("io", server.io);
+app.set("onlineUsers", server.onlineUsers);
 
 connectDB()
   .then(() => {

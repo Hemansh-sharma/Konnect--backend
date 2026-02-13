@@ -102,4 +102,7 @@ userSchema.methods.validatePassword = async function (passwordInputByUser) {
   return isPasswordValid;
 };
 
+// Create text index for user search
+userSchema.index({ firstName: "text", lastName: "text" });
+
 module.exports = mongoose.model("User", userSchema);

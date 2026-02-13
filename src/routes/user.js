@@ -64,9 +64,13 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     limit = limit > 50 ? 50 : limit;
     const skip = (page - 1) * limit;
 
+    // Find connection requests with "interested" or "accepted" status
     const connectionRequests = await ConnectionRequest.find({
-      $or: [{ fromUserId: loggedInUser._id }, { toUserId: loggedInUser._id }],
-    }).select("fromUserId  toUserId");
+      $or: [
+        { fromUserId: loggedInUser._id, status: { $in: ["interested", "accepted"] } },
+        { toUserId: loggedInUser._id, status: { $in: ["interested", "accepted"] } },
+      ],
+    }).select("fromUserId toUserId");
 
     const hideUsersFromFeed = new Set();
     connectionRequests.forEach((req) => {
@@ -89,4 +93,47 @@ userRouter.get("/feed", userAuth, async (req, res) => {
     res.status(400).json({ message: err.message });
   }
 });
+
+// Search users by name
+userRouter.get("/user/browse", userAuth, async (req, res) => {
+  try {
+    const searchQuery = req.query.q;
+
+    if (!searchQuery || searchQuery.trim() === "") {
+      return res.json([]);
+    }
+
+    const users = await User.find(
+      {
+        $text: { $search: searchQuery },
+        _id: { $ne: req.user._id },
+      },
+      { score: { $meta: "textScore" } }
+    )
+      .select(USER_SAFE_DATA)
+      .sort({ score: { $meta: "textScore" } })
+      .limit(10);
+
+    res.json(users);
+  } catch (err) {
+    console.error(err);
+    // Fallback to regex search if text search fails
+    try {
+      const users = await User.find({
+        $or: [
+          { firstName: { $regex: searchQuery, $options: "i" } },
+          { lastName: { $regex: searchQuery, $options: "i" } },
+        ],
+        _id: { $ne: req.user._id },
+      })
+        .select(USER_SAFE_DATA)
+        .limit(10);
+
+      res.json(users);
+    } catch (fallbackErr) {
+      res.status(500).json({ message: "Search failed" });
+    }
+  }
+});
+
 module.exports = userRouter;
